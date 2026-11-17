@@ -132,11 +132,19 @@
   <script>
     const API_URL = "{% url 'route-plan' %}";
     const map = L.map("map").setView([39.5, -98.35], 4);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-    }).addTo(map);
+    const baseLayers = {
+      "OpenStreetMap": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        referrerPolicy: "strict-origin-when-cross-origin",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }),
+      "Esri Streets": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 18,
+        attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
+      })
+    };
+    baseLayers["OpenStreetMap"].addTo(map);
+    L.control.layers(baseLayers, null, { position: "topright" }).addTo(map);
     const layer = L.layerGroup().addTo(map);
 
     const form = document.getElementById("plan-form");
