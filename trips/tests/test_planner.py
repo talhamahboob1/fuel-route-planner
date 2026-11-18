@@ -153,6 +153,16 @@ class PlannerTests(SimpleTestCase):
         self.assertAlmostEqual(plan.stops[0].gallons_purchased, 40.0)
         self.assertAlmostEqual(plan.fuel_at_finish_gallons, 0.0)
 
+    def test_defers_buying_when_a_cheaper_station_is_already_reachable(self):
+        stations = [station(1, 10, 3.20), station(2, 12, 3.15), station(3, 300, 3.00)]
+
+        plan = plan_fuel_stops(stations, 400.0, VEHICLE, starting_fuel_gallons=10.0, min_price_drop_per_gallon=0.10)
+
+        self.assertEqual([stop.station.opis_id for stop in plan.stops], [2, 3])
+        self.assertAlmostEqual(plan.stops[0].gallons_purchased, 20.0)
+        self.assertAlmostEqual(plan.stops[1].gallons_purchased, 10.0)
+        self.assertAlmostEqual(plan.total_cost, 93.0)
+
     def test_zero_threshold_reproduces_exact_greedy(self):
         stations = [station(1, 100, 3.00), station(2, 300, 2.95)]
 

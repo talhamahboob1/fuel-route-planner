@@ -68,23 +68,23 @@ A trimmed response:
   "fuel_stops": [
     {
       "sequence": 1,
-      "station": {"opis_id": 67427, "name": "CASEYS #2907", "address": "I-57 & I-62", "city": "Charleston", "state": "MO", "latitude": 36.9213, "longitude": -89.3342},
-      "distance_from_start_miles": 380.0,
-      "distance_from_route_miles": 0.7,
-      "price_per_gallon": 3.044,
+      "station": {"opis_id": 66643, "name": "DEERFIELD TRAVEL CENTER", "address": "I-55, EXIT 8", "city": "Steele", "state": "MO", "latitude": 36.0915, "longitude": -89.8346},
+      "distance_from_start_miles": 452.5,
+      "distance_from_route_miles": 1.6,
+      "price_per_gallon": 2.976,
       "gallons_purchased": 29.3,
-      "cost": 89.19,
-      "fuel_on_arrival_gallons": 12.0,
-      "fuel_on_departure_gallons": 41.3
+      "cost": 87.2,
+      "fuel_on_arrival_gallons": 4.75,
+      "fuel_on_departure_gallons": 34.05
     },
     {"sequence": 2, "station": {"name": "Quiktrip #7900", "city": "Texarkana", "state": "TX", "...": "..."}, "gallons_purchased": 17.39, "cost": 49.68, "...": "..."}
   ],
   "summary": {
-    "total_fuel_cost": 138.87,
+    "total_fuel_cost": 136.88,
     "total_gallons_purchased": 46.69,
     "total_gallons_consumed": 96.69,
     "fuel_stop_count": 2,
-    "average_price_paid_per_gallon": 2.974,
+    "average_price_paid_per_gallon": 2.932,
     "fuel_at_finish_gallons": 0.0,
     "currency": "USD"
   },
@@ -112,11 +112,11 @@ Errors share one shape, `{"error": {"code": "...", "message": "...", "details": 
 ## How a request is handled
 
 1. **Resolve the locations.** Coordinates are used as given. `City, ST` style input is looked up in a bundled gazetteer of about 29,500 US places, with no network call. Anything else goes to Nominatim, and the answer is stored in the database so the same address never costs a second call. Every result is checked against US bounding boxes.
-2. **Route once.** A single request to the public OSRM server returns the full driving geometry, distance and duration.
+2. **Route once.** A single request to the public OSRM server returns the full driving geometry, distance and duration. The geometry is requested as an encoded polyline, which is about a quarter of the size of GeoJSON on the wire.
 3. **Find stations along the route.** The geometry is resampled every half mile. Stations inside the route's bounding box are compared against those samples with vectorised numpy, and the ones within `max_detour_miles` of the road are kept, each tagged with its mile marker along the route.
 4. **Plan the fuel stops** (see below).
 5. **Simplify the geometry** for the response with Douglas Peucker at a 30 metre tolerance, which cuts a coast to coast route from about 35,000 points to about 3,500 without visible change on a map.
-6. **Cache the plan** for an hour, keyed on the normalised inputs. A repeat request returns in a few milliseconds and makes no external calls.
+6. **Cache the plan** for an hour on disk, keyed on the normalised inputs. A repeat request returns in a few milliseconds, makes no external calls, and the cache survives a server restart.
 
 A cold coast to coast request takes between one and three seconds, almost all of it waiting for OSRM. The local work (candidate search, planning, simplification) takes under half a second for the longest routes in the country.
 
@@ -158,7 +158,7 @@ GeoNames data is licensed under [Creative Commons Attribution 4.0](https://creat
 | [OSRM demo server](https://project-osrm.org/) | Driving route, distance, duration, geometry | 1 (0 when the plan is cached) |
 | [Nominatim](https://nominatim.org/) | Fallback geocoding for free text addresses | 0 for coordinates or `City, ST`, otherwise 1 per location, cached forever after |
 
-Both are free and need no API key. Their usage policies ask for an identifying `User-Agent`, which `HTTP_USER_AGENT` sets, and modest request rates, which the API throttle and the result cache help with. For production use point `OSRM_BASE_URL` at your own OSRM instance.
+Both are free and need no API key. Their usage policies ask for an identifying `User-Agent`, which `HTTP_USER_AGENT` sets, and modest request rates, which the API throttle and the result cache help with. The public OSRM server is shared and its response time varies from one to several seconds, occasionally more, so the client retries a failed call once (`HTTP_RETRIES`) and gives up after `HTTP_TIMEOUT_SECONDS`. For production use point `OSRM_BASE_URL` at your own OSRM instance.
 
 ## Configuration
 
@@ -174,8 +174,9 @@ Settings are read from environment variables. `.env.example` lists them all.
 | `MIN_PURCHASE_GALLONS` | 5 | Smallest purchase the planner will suggest |
 | `MIN_PRICE_DROP_PER_GALLON` | 0.10 | Price advantage needed to justify an extra stop |
 | `RESULT_CACHE_SECONDS` | 3600 | How long a plan is cached |
+| `CACHE_DIR` | `.cache` in the project | Where the file based cache lives |
 | `API_THROTTLE_RATE` | 120/min | Anonymous rate limit |
-| `OSRM_BASE_URL`, `NOMINATIM_BASE_URL`, `HTTP_USER_AGENT`, `HTTP_TIMEOUT_SECONDS` | public servers | External service settings |
+| `OSRM_BASE_URL`, `NOMINATIM_BASE_URL`, `HTTP_USER_AGENT`, `HTTP_TIMEOUT_SECONDS`, `HTTP_RETRIES` | public servers, 15 s, 1 retry | External service settings |
 
 ## Tests
 
@@ -208,6 +209,6 @@ The container runs migrations, loads the stations and serves the app with gunico
 ## Production notes
 
 * Use Postgres through `DATABASE_URL` and set `DJANGO_DEBUG=false` with a real secret key and allowed hosts.
-* The plan cache uses Django's local memory backend, which is per process. Behind several gunicorn workers switch `CACHES` to Redis or Memcached so every worker shares it.
+* The plan cache is file based, so every gunicorn worker on a host shares it and it survives restarts. Across several hosts switch `CACHES` to Redis or Memcached.
 * The station index is built in memory per process from the database (about 6,600 rows) and refreshes itself whenever the station table changes.
 * The USA check for coordinates uses bounding boxes for the contiguous states, Alaska and Hawaii. It rejects obvious mistakes, not every point just across the Canadian or Mexican border.

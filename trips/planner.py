@@ -191,6 +191,9 @@ def _purchase_amount(index, positions, prices, trip_miles, vehicle, fuel, min_pr
     window_prices = prices[index + 1 : window_end]
     cheaper = np.flatnonzero(window_prices < current_price - EPSILON)
 
+    coverable = current_position + fuel * mpg
+    if len(cheaper) and positions[index + 1 + cheaper[0]] <= coverable + EPSILON:
+        return 0.0
     if len(cheaper) == 0:
         if finish_in_reach:
             return max(0.0, (trip_miles - current_position) / mpg - fuel)

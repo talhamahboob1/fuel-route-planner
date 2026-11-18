@@ -31,7 +31,7 @@ class OSRMClientTests(SimpleTestCase):
                     {
                         "distance": 477336.9,
                         "duration": 20210.9,
-                        "geometry": {"type": "LineString", "coordinates": [[-87.63, 41.88], [-90.2, 38.63]]},
+                        "geometry": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
                     }
                 ],
             }
@@ -41,10 +41,12 @@ class OSRMClientTests(SimpleTestCase):
 
         self.assertAlmostEqual(route.distance_miles, 296.6, places=1)
         self.assertAlmostEqual(route.duration_minutes, 336.8, places=1)
-        self.assertEqual(route.coordinates[0], Coordinate(41.88, -87.63))
+        self.assertEqual(route.coordinates[0], Coordinate(38.5, -120.2))
+        self.assertEqual(len(route.coordinates), 3)
         url = self.session.get.call_args.args[0]
         self.assertEqual(url, "https://osrm.example/route/v1/driving/-87.629800,41.878100;-90.199400,38.627000")
         self.assertEqual(self.session.get.call_args.kwargs["params"]["overview"], "full")
+        self.assertEqual(self.session.get.call_args.kwargs["params"]["geometries"], "polyline")
 
     def test_no_route_raises_route_not_found(self):
         self.session.get.return_value = fake_response({"code": "NoRoute", "message": "Impossible route"}, 400)

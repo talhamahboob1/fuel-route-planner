@@ -5,6 +5,7 @@ venv/
 .env
 db.sqlite3
 staticfiles/
+.cache/
 .pytest_cache/
 .coverage
 htmlcov/

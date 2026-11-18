@@ -6,6 +6,7 @@ from django.conf import settings
 
 from ..exceptions import ExternalServiceError
 from ..types import Coordinate
+from .http import build_session
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class NominatimClient:
         self.base_url = (base_url or config["NOMINATIM_BASE_URL"]).rstrip("/")
         self.timeout = timeout or config["HTTP_TIMEOUT_SECONDS"]
         self.user_agent = config["HTTP_USER_AGENT"]
-        self.session = session or requests.Session()
+        self.session = session or build_session()
 
     def geocode(self, query):
         params = {"q": query, "format": "jsonv2", "limit": 1, "countrycodes": "us"}

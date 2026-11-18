@@ -4,7 +4,9 @@ import requests
 from django.conf import settings
 
 from ..exceptions import ExternalServiceError, RouteNotFound
-from ..types import Coordinate, Route
+from ..polyline import decode_polyline
+from ..types import Route
+from .http import build_session
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +19,14 @@ class OSRMClient:
         self.base_url = (base_url or config["OSRM_BASE_URL"]).rstrip("/")
         self.timeout = timeout or config["HTTP_TIMEOUT_SECONDS"]
         self.user_agent = config["HTTP_USER_AGENT"]
-        self.session = session or requests.Session()
+        self.session = session or build_session()
 
     def route(self, start, finish):
         path = f"{start.longitude:.6f},{start.latitude:.6f};{finish.longitude:.6f},{finish.latitude:.6f}"
         url = f"{self.base_url}/route/v1/driving/{path}"
         params = {
             "overview": "full",
-            "geometries": "geojson",
+            "geometries": "polyline",
             "steps": "false",
             "alternatives": "false",
             "annotations": "false",
@@ -58,12 +60,13 @@ class OSRMClient:
         if not routes:
             raise RouteNotFound("No drivable route was found between the two locations.")
         route = routes[0]
-        coordinates = tuple(
-            Coordinate(latitude=float(lat), longitude=float(lon))
-            for lon, lat in route.get("geometry", {}).get("coordinates", [])
-        )
-        if not coordinates:
+        geometry = route.get("geometry")
+        if not isinstance(geometry, str) or not geometry:
             raise ExternalServiceError("routing", "The routing service returned a route without geometry.")
+        try:
+            coordinates = tuple(decode_polyline(geometry))
+        except ValueError as exc:
+            raise ExternalServiceError("routing", "The routing service returned an unreadable geometry.") from exc
         return Route(
             distance_meters=float(route["distance"]),
             duration_seconds=float(route["duration"]),

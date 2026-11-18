@@ -103,8 +103,9 @@ DATABASES = {
 
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "fuel-router",
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": os.environ.get("CACHE_DIR", str(BASE_DIR / ".cache")),
+        "OPTIONS": {"MAX_ENTRIES": 1000},
     }
 }
 
@@ -166,7 +167,8 @@ FUEL_ROUTER = {
     "ROUTE_GEOMETRY_TOLERANCE_METERS": env_float("ROUTE_GEOMETRY_TOLERANCE_METERS", 30.0),
     "OSRM_BASE_URL": os.environ.get("OSRM_BASE_URL", "https://router.project-osrm.org"),
     "NOMINATIM_BASE_URL": os.environ.get("NOMINATIM_BASE_URL", "https://nominatim.openstreetmap.org"),
-    "HTTP_TIMEOUT_SECONDS": env_float("HTTP_TIMEOUT_SECONDS", 20.0),
+    "HTTP_TIMEOUT_SECONDS": env_float("HTTP_TIMEOUT_SECONDS", 15.0),
+    "HTTP_RETRIES": env_int("HTTP_RETRIES", 1),
     "HTTP_USER_AGENT": os.environ.get("HTTP_USER_AGENT", "fuel-route-planner/1.0 (Django assessment project)"),
     "RESULT_CACHE_SECONDS": env_int("RESULT_CACHE_SECONDS", 3600),
     "GAZETTEER_PATH": DATA_DIR / "us_places.csv",
